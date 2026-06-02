@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(avito_search_engine LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_executable(search_engine
+    src/main.cpp
+)
+
+target_include_directories(search_engine PRIVATE
+    include
+)
+
+enable_testing()
+
+add_subdirectory(tests)
+add_subdirectory(benchmarks)
