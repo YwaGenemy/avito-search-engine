@@ -1,2 +1,4 @@
 build/
+builds/
 build-ninja/
+cmake-build-*/
