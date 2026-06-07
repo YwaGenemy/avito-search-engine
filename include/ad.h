@@ -10,7 +10,12 @@ struct Ad {
     std::string description;
     std::string category;
 
-    size_t TextSize() const { return title.size() + description.size(); }
-
     std::string Text() const { return title + ' ' + description; }
+
+    void SetTermsCount(size_t count) { terms_count_ = count; }
+
+    size_t GetTermsCount() const { return terms_count_; }
+
+   private:
+    size_t terms_count_;
 };

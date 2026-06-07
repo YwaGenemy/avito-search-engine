@@ -71,11 +71,12 @@ std::vector<SearchResult> Bm25Index::Search(
             }
 
             scores[ad_id] += ScoreTerm(term_frequency, document_frequency,
-                                       length_it->second.TextSize());
+                                       length_it->second.GetTermsCount());
         }
     }
 
-    std::vector<SearchResult> results(scores.size());
+    std::vector<SearchResult> results;
+    results.reserve(scores.size());
 
     for (const auto& [ad_id, score] : scores) {
         results.push_back({ad_id, score});
@@ -162,7 +163,7 @@ void Bm25Index::RemoveFromIndex(int ad_id) {
         return;
     }
 
-    const auto length = ad_it->second.TextSize();
+    const auto length = ad_it->second.GetTermsCount();
     total_document_length_ -= length;
 
     for (auto it = postings_.begin(); it != postings_.end();) {
