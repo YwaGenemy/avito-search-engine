@@ -3,19 +3,19 @@
 #include <cstdint>
 #include <string>
 
-struct Ad {
-    int id = 0;
+using IdType = uint64_t;
 
+struct Ad {
     std::string title;
     std::string description;
     std::string category;
 
     std::string Text() const { return title + ' ' + description; }
 
-    void SetTermsCount(size_t count) { terms_count_ = count; }
+    void SetID(IdType id) { id_ = id; }
 
-    size_t GetTermsCount() const { return terms_count_; }
+    uint64_t GetID() { return id_; }
 
    private:
-    size_t terms_count_;
+    IdType id_;
 };
