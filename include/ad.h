@@ -6,16 +6,25 @@
 using IdType = uint64_t;
 
 struct Ad {
+    Ad() = default;
+
+    Ad(std::string title, std::string description, std::string category)
+        : title(std::move(title)),
+          description(std::move(description)),
+          category(std::move(category)) {}
+
+    std::string Text() const { return title + ' ' + description; }
+
+    IdType GetID() const { return id_; }
+
     std::string title;
     std::string description;
     std::string category;
 
-    std::string Text() const { return title + ' ' + description; }
+   private:
+    friend class DocumentStorage;
 
     void SetID(IdType id) { id_ = id; }
 
-    uint64_t GetID() { return id_; }
-
-   private:
-    IdType id_;
+    IdType id_ = 0;
 };
