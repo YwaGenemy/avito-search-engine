@@ -6,13 +6,21 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+add_library(search_engine_core
+    src/bm25_index.cpp
+    src/storage.cpp
+)
+
+target_include_directories(search_engine_core PUBLIC
+    include
+)
+
 add_executable(search_engine
     src/main.cpp
 )
 
-target_include_directories(search_engine PRIVATE
-    include
-)
+target_link_libraries(search_engine PRIVATE
+    search_engine_core)
 
 enable_testing()
 

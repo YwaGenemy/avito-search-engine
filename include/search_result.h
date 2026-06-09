@@ -1,6 +1,8 @@
 #pragma once
 
+#include "ad.h"
+
 struct SearchResult {
-    int ad_id = 0;
+    IdType ad_id = 0;
     double score = 0.0;
 };

@@ -10,6 +10,7 @@
 #include "index_stats.h"
 #include "search_options.h"
 #include "search_result.h"
+#include "storage.h"
 
 enum class IndexType { InvertedBm25, FlatVector, Hnsw };
 
@@ -19,7 +20,7 @@ class Index {
 
     virtual IndexType Type() const noexcept = 0;
 
-    virtual void Add(Ad& ad) = 0;
+    virtual void Add(const Ad& ad) = 0;
 
     virtual void Remove(IdType id) = 0;
 
@@ -37,5 +38,8 @@ class Index {
     virtual void Clear() = 0;
 
    protected:
-    std::unordered_map<IdType, Ad> ads_;
+    explicit Index(DocumentStorage& storage)
+        : storage_(storage) {}
+
+    DocumentStorage& storage_;
 };
