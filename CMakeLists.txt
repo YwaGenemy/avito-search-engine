@@ -17,6 +17,10 @@ target_include_directories(search_engine_core PUBLIC
 
 add_executable(search_engine
     src/main.cpp
+    
+    #flat_vector
+    src/embedder.cpp 
+    src/flat_vector.cpp
 )
 
 target_link_libraries(search_engine PRIVATE
