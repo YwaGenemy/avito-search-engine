@@ -110,9 +110,7 @@ void Cli::RenderMenu() const {
     std::cout << "+-------------------------+--------------------------------------+\n";
     const std::string guide = "[j] down  [k] up  [Enter] select  [q] quit";
     std::cout << "| " << kGuideColor << guide << kResetColor;
-    for(std::size_t pad = guide.size(); pad < 62; ++pad){
-        std::cout << ' ';
-    }
+    for(std::size_t pad = guide.size(); pad < 62; ++pad)std::cout << ' '; 
     std::cout << " |\n";
     std::cout << "+----------------------------------------------------------------+\n";
 }
@@ -134,7 +132,7 @@ void Cli::HandleInput(char input) {
 void Cli::ActivateSelected() {
     switch(selected_){
         case 0:
-            message_ = "index selector is not implemented yet";
+            message_ = "selector is not implemented yet";
             break;
         case 1:
             loaded_ads_ = 4;
@@ -151,9 +149,6 @@ void Cli::ActivateSelected() {
             break;
         case 5:
             message_ = "stats is not implemented yet";
-            break;
-        case 6:
-            running_ = false;
             break;
     }
 }

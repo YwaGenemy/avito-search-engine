@@ -14,8 +14,7 @@ private:
         "Add ad",
         "Search",
         "Compare indexes",
-        "Stats",
-        "Exit"
+        "Stats"
     };
     std::size_t selected_ = 0;
     bool running_ = true;
