@@ -21,7 +21,7 @@ private:
     bool running_ = true;
     std::string active_index_ = "FlatVector";
     std::size_t loaded_ads_ = 0;
-    std::string message_ = "j/k + Enter to move, Enter to select, q + Enter to quit";
+    std::string message_ = "ready";
 
     void RenderMenu() const;
     void HandleInput(char input);

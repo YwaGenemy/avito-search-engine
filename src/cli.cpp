@@ -10,6 +10,9 @@
 #include <iostream>
 
 namespace{
+constexpr const char* kGuideColor = "\033[38;2;66;233;253m";
+constexpr const char* kResetColor = "\033[0m";
+
 void ShowBanner(){
     std::cout << R"(
    ____                 __     ____          _         
@@ -77,19 +80,20 @@ void Cli::RenderMenu() const {
         std::cout << (i == selected_ ? "> " : "  ");
         std::cout << menu_[i];
 
-        for(std::size_t pad = menu_[i].size(); pad < 20; ++pad){
+        for(std::size_t pad = menu_[i].size(); pad < 22; ++pad){
             std::cout << ' ';
         }
 
         if(i == 0){
             std::cout << "| Active index: " << active_index_;
-            for(std::size_t pad = active_index_.size(); pad < 20; ++pad){
+            for(std::size_t pad = active_index_.size(); pad < 23; ++pad){
                 std::cout << ' ';
             }
             std::cout << "|\n";
         } else if(i == 1){
             std::cout << "| Loaded ads: " << loaded_ads_;
-            std::cout << "                         |\n";
+            
+            std::cout << "                        |\n";
         } else if(i == 3){
             std::cout << "| " << message_;
             if(message_.size() < 36){
@@ -104,7 +108,13 @@ void Cli::RenderMenu() const {
     }
 
     std::cout << "+-------------------------+--------------------------------------+\n";
-    std::cout << "\n[j] down  [k] up  [Enter] select  [q] quit";
+    const std::string guide = "[j] down  [k] up  [Enter] select  [q] quit";
+    std::cout << "| " << kGuideColor << guide << kResetColor;
+    for(std::size_t pad = guide.size(); pad < 62; ++pad){
+        std::cout << ' ';
+    }
+    std::cout << " |\n";
+    std::cout << "+----------------------------------------------------------------+\n";
 }
 
 void Cli::HandleInput(char input) {
