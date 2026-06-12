@@ -19,11 +19,10 @@ IndexType FlatVectorIndex::Type() const noexcept {
 }
 
 void FlatVectorIndex::Add(const Ad &ad) {
-    std::vector<float> embedding = this-> embedder_.Embed(ad.Text());
+    std::vector<float> embedding = embedder_.Embed(ad.Text());
 
-    mtx_.lock();
-    this->embeddings_[storage_.Add(ad)] = embedding;
-    mtx_.unlock();
+    std::unique_lock ul(mtx_);
+    embeddings_[storage_.Add(ad)] = std::move(embedding);
 }
 
 void FlatVectorIndex::Remove(IdType id){

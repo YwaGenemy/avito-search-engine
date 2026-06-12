@@ -19,6 +19,20 @@ std::vector<std::string> Tokenize(const std::string& text){
     return tokens;
 }
 
+float LengthVec(std::vector<float> &vector){
+    double sum2 = 0.0;
+    for(int i=0;i<vector.size();i++){
+        sum2 += vector[i]*vector[i];
+    }
+    return static_cast<float>(std::sqrt(sum2));
+}
+
+void Normalize(std::vector<float> &vector){
+    float lenght = LengthVec(vector);
+    if(lenght == 0.0f)return;
+    for(int i=0;i<vector.size();i++)vector[i] /= lenght;
+}
+
 } //namespace
 
 
@@ -30,10 +44,9 @@ std::vector<float> Embedder::Embed(const std::string& text)const{
     std::vector<std::string> tokens = Tokenize(text);
 
     std::hash<std::string> hasher;
-    for(auto& token: tokens){
-        vector[hasher(token) % dimension_] += 1.0;
-    }
+    for(auto& token: tokens)vector[hasher(token) % dimension_] += 1.0;
 
+    Normalize(vector);
     return vector;
 }
 
