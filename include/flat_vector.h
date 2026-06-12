@@ -16,6 +16,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include <vector>
+#include <math.h>
 
 class FlatVectorIndex : public Index{
 public:
