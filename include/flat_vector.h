@@ -11,7 +11,11 @@
 
 #include "storage.h"
 
-#include<bits/stdc++.h> // ВРЕМЕННО.
+#include <cstddef>
+#include <optional>
+#include <shared_mutex>
+#include <unordered_map>
+#include <vector>
 
 class FlatVectorIndex : public Index{
 public:
@@ -34,6 +38,5 @@ private:
     mutable std::shared_mutex mtx_;
 
 };
-
 
 

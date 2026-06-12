@@ -4,7 +4,9 @@
 #include "index_stats.h"
 #include "ad.h"
 
-#include <bits/stdc++.h> // ВРЕМЕННО!!!
+#include <cstddef>
+#include <string>
+#include <vector>
 
 class Embedder{
 private:
