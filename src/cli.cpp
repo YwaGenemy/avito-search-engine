@@ -22,7 +22,15 @@ void ShowBanner(){
 }
 
 void ClearScreen(){
-    std::cout << "\033[2J\033[H";
+    std::cout << "\033[H\033[J";
+}
+
+void EnterAlternateScreen(){
+    std::cout << "\033[?1049h\033[?25l";
+}
+
+void LeaveAlternateScreen(){
+    std::cout << "\033[?25h\033[?1049l";
 }
 
 char ReadKey(){
@@ -46,10 +54,14 @@ char ReadKey(){
 }
 
 void Cli::Run() {
+    EnterAlternateScreen();
+
     while(running_){
         RenderMenu();
         HandleInput(ReadKey());
     }
+
+    LeaveAlternateScreen();
 }
 
 void Cli::RenderMenu() const {
