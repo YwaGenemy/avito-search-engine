@@ -17,6 +17,7 @@ target_include_directories(search_engine_core PUBLIC
 
 add_executable(search_engine
     src/main.cpp
+    src/cli.cpp
     
     #flat_vector
     src/embedder.cpp 
