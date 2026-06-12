@@ -9,28 +9,29 @@
 
 #include "embedder.h"
 
+#include "storage.h"
+
 #include<bits/stdc++.h> // ВРЕМЕННО.
 
 class FlatVectorIndex : public Index{
 public:
-    explicit FlatVectorIndex(size_t emb_dimension = 128);
+    explicit FlatVectorIndex(DocumentStorage& storage, size_t emb_dimension = 128);
     IndexType Type() const noexcept override;
+
     void Add(const Ad& ad) override;
+    void Remove(IdType id) override;
 
     std::vector<SearchResult> Search(const std::string& query, const SearchOptions& options)const override;
-    std::optional<Ad> Get(int ad_id)const override;
+    std::optional<Ad> Get(IdType ad_id)const override;
     IndexStats Stats() const override;
     size_t Size() const override;
     void Clear() override;
 
 private:
-
-    std::vector<Ad> ads_;
-    std::vector<std::vector<float>> embeddings_;
-    std::unordered_map<int, size_t> id_to_pos_;
+    // std::unoredered_map<IdType, Ad> storage_; <- DocumentStorage
+    std::unordered_map<IdType, std::vector<float>> embeddings_;
     Embedder embedder_;
-
-    // mutable std::shared_mutex mutex_;
+    mutable std::shared_mutex mtx_;
 
 };
 
