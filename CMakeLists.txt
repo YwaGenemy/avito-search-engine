@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(search_engine_core
-    src/bm25_index.cpp
+    # src/bm25_index.cpp
     src/storage.cpp
 )
 
@@ -17,6 +17,7 @@ target_include_directories(search_engine_core PUBLIC
 
 add_executable(search_engine
     src/main.cpp
+    src/cli.cpp
     
     #flat_vector
     src/embedder.cpp 
