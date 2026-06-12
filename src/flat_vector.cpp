@@ -1,5 +1,8 @@
 #include "flat_vector.h"
 
+#include <algorithm>
+#include <mutex>
+#include <unordered_set>
 
 namespace {
 std::size_t CalcCategories(const DocumentStorage& storage){
