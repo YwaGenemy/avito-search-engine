@@ -4,6 +4,7 @@
 #include "storage.h"
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class Cli {
@@ -17,6 +18,7 @@ private:
     std::string current_query_;
     std::vector<std::string> active_paths_;
     std::vector<std::string> filters_;
+    std::unordered_map<IdType, std::string> file_paths_;
     DocumentStorage storage_;
     FlatVectorIndex flat_index_;
 
