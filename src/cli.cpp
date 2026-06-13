@@ -10,6 +10,12 @@
 
 namespace {
 constexpr const char* kFileColor = "\033[38;2;66;233;253m";
+constexpr const char* kPromptColor = "\033[92m";
+constexpr const char* kGreenColor = "\033[92m";
+constexpr const char* kCyanColor = "\033[96m";
+constexpr const char* kYellowColor = "\033[93m";
+constexpr const char* kRedColor = "\033[91m";
+constexpr const char* kGrayColor = "\033[90m";
 constexpr const char* kResetColor = "\033[0m";
 
 void ShowBanner(){
@@ -18,9 +24,8 @@ void ShowBanner(){
   / __/__ ___ _________/ /    / __/__  ___ _(_)__  ___ 
  _\ \/ -_) _ `/ __/ __/ _ \  / _// _ \/ _ `/ / _ \/ -_)
 /___/\__/\_,_/_/  \__/_//_/ /___/_//_/\_, /_/_//_/\__/ 
-                                     /___/              
 )";
-    std::cout << "BM25 | FlatVector | HNSW\n\n";
+    std::cout << kGrayColor << "[ BM25 ] [ FlatVector ] [ HNSW ]" << kResetColor << "     /___/" << "\n\n";
 }
 
 std::string Trim(const std::string& str){
@@ -130,7 +135,7 @@ void Cli::Run(){
 
     std::string line;
     while(running_){
-        std::cout << "\n>  ";
+        std::cout << '\n' << kPromptColor << ">  " << kResetColor;
         if(!std::getline(std::cin, line))break;
 
         Execute(Trim(line));
@@ -158,25 +163,24 @@ void Cli::Execute(const std::string& line){
     } else if(command == "/unload"){ Unload();
     } else if(command == "/clear"){ Clear();
     } else if(command == "/exit" || command == "/quit" || command == "/q"){ running_ = false;
-    } else { std::cout << "unknown command: " << command << '\n'; }
+    } else { std::cout << kRedColor << "unknown command: " << command << kResetColor << '\n'; }
 }
 
 void Cli::Help() const{
     std::cout << "commands:\n"
-              << "  /load <path>          load file or directory\n"
-              << "  /status               show index, memory and active paths\n"
-              << "  /filter <categories>  set category filters\n"
-              << "  /unload               clear loaded paths and index\n"
-              << "  /help                 show commands\n"
-              << "  /stats                show index stats\n"
-              << "  /index <flat|bm25|hnsw>\n"
-              << "  /clear                reset filters and current query\n"
-              << "  <query>               search in loaded documents\n"
-              << "  /exit                 quit\n";
+              << "  " << kCyanColor << "/load " << kYellowColor << "<path>" << kGrayColor << "          load file or directory" << kResetColor << '\n'
+              << "  " << kCyanColor << "/status" << kGrayColor << "               show index, memory and active paths" << kResetColor << '\n'
+              << "  " << kCyanColor << "/filter " << kYellowColor << "<categories>" << kGrayColor << "  set category filters" << kResetColor << '\n'
+              << "  " << kCyanColor << "/unload" << kGrayColor << "               clear loaded paths and index" << kResetColor << '\n'
+              << "  " << kCyanColor << "/help" << kGrayColor << "                 show commands" << kResetColor << '\n'
+              << "  " << kCyanColor << "/stats" << kGrayColor << "                show index stats" << kResetColor << '\n'
+              << "  " << kCyanColor << "/index " << kYellowColor << "<flat|bm25|hnsw>" << kResetColor << '\n'
+              << "  " << kCyanColor << "/clear" << kGrayColor << "                reset filters and current query" << kResetColor << '\n'
+              << "  " << kCyanColor << "/exit" << kGrayColor << "                 quit" << kResetColor << '\n';
 }
 
 void Cli::Status() const{
-    std::cout << "active index: " << active_index_ << '\n';
+    std::cout << "active index: " << kGreenColor << active_index_ << kResetColor << '\n';
     PrintFilters(filters_);
     PrintPaths(active_paths_);
 }
@@ -193,15 +197,15 @@ void Cli::Stats() const{
 void Cli::SetIndex(const std::string& name){
     if(name == "flat" || name == "flatvector" || name == "FlatVector"){
         active_index_ = "FlatVector";
-        std::cout << "active index: FlatVector\n";
+        std::cout << kGreenColor << "active index: FlatVector" << kResetColor << '\n';
     } else if(name == "bm25"){
         active_index_ = "BM25";
-        std::cout << "BM25 is selected, but implementation is not connected yet\n";
+        std::cout << kYellowColor << "BM25 is selected, but implementation is not connected yet" << kResetColor << '\n';
     } else if(name == "hnsw"){
         active_index_ = "HNSW";
-        std::cout << "HNSW is selected, but implementation is not connected yet\n";
+        std::cout << kYellowColor << "HNSW is selected, but implementation is not connected yet" << kResetColor << '\n';
     } else {
-        std::cout << "usage: /index <flat|bm25|hnsw>\n";
+        std::cout << kRedColor << "usage: /index <flat|bm25|hnsw>" << kResetColor << '\n';
     }
 }
 
@@ -212,17 +216,17 @@ void Cli::SetFilter(const std::string& args){
 
 void Cli::Load(const std::string& path_str){
     if(path_str.empty()){
-        std::cout << "usage: /load <path>\n";
+        std::cout << kRedColor << "usage: /load <path>" << kResetColor << '\n';
         return;
     }
     if(active_index_ != "FlatVector"){
-        std::cout << "only FlatVector is connected now\n";
+        std::cout << kRedColor << "only FlatVector is connected now" << kResetColor << '\n';
         return;
     }
 
     const std::filesystem::path path(path_str);
     if(!std::filesystem::exists(path)){
-        std::cout << "path not found: " << path_str << '\n';
+        std::cout << kRedColor << "path not found: " << path_str << kResetColor << '\n';
         return;
     }
 
@@ -251,7 +255,7 @@ void Cli::Load(const std::string& path_str){
         active_paths_.push_back(path_str);
     }
 
-    std::cout << "loaded files: " << loaded << '\n';
+    std::cout << kGreenColor << "loaded files: " << loaded << kResetColor << '\n';
 }
 
 void Cli::Unload(){
@@ -260,23 +264,23 @@ void Cli::Unload(){
     current_query_.clear();
     file_paths_.clear();
     flat_index_.Clear();
-    std::cout << "index and active paths cleared\n";
+    std::cout << kGreenColor << "index and active paths cleared" << kResetColor << '\n';
 }
 
 void Cli::Clear(){
     filters_.clear();
     current_query_.clear();
-    std::cout << "filters and current query cleared\n";
+    std::cout << kGreenColor << "filters and current query cleared" << kResetColor << '\n';
 }
 
 void Cli::Search(const std::string& query){
     const auto clean_query = Trim(query);
     if(clean_query.empty() && current_query_.empty()){
-        std::cout << "usage: type query without slash\n";
+        std::cout << kRedColor << "usage: type query without slash" << kResetColor << '\n';
         return;
     }
     if(active_index_ != "FlatVector"){
-        std::cout << "only FlatVector search is connected now\n";
+        std::cout << kRedColor << "only FlatVector search is connected now" << kResetColor << '\n';
         return;
     }
 
@@ -309,7 +313,7 @@ void Cli::Search(const std::string& query){
     }
 
     if(results.empty()){
-        std::cout << "no results\n";
+        std::cout << kGrayColor << "no results" << kResetColor << '\n';
         return;
     }
 
@@ -324,7 +328,7 @@ void Cli::Search(const std::string& query){
         std::cout << '[' << result.ad_id << "] "
                   << path
                   << " | category: " << ad->category
-                  << " | score: " << std::fixed << std::setprecision(4) << result.score
+                  << " | score: " << kYellowColor << std::fixed << std::setprecision(4) << result.score << kResetColor
                   << '\n';
     }
 }
