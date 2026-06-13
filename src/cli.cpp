@@ -130,7 +130,6 @@ void Cli::Execute(const std::string& line){
     } else if(command == "/load"){ Load(args);
     } else if(command == "/unload"){ Unload();
     } else if(command == "/clear"){ Clear();
-    } else if(command == "/search"){ Search(args);
     } else if(command == "/exit" || command == "/quit" || command == "/q"){ running_ = false;
     } else { std::cout << "unknown command: " << command << '\n'; }
 }
@@ -145,7 +144,7 @@ void Cli::Help() const{
               << "  /stats                show index stats\n"
               << "  /index <flat|bm25|hnsw>\n"
               << "  /clear                reset filters and current query\n"
-              << "  /search <query>       search in loaded documents\n"
+              << "  <query>               search in loaded documents\n"
               << "  /exit                 quit\n";
 }
 
@@ -244,7 +243,7 @@ void Cli::Clear(){
 void Cli::Search(const std::string& query){
     const auto clean_query = Trim(query);
     if(clean_query.empty() && current_query_.empty()){
-        std::cout << "usage: /search <query>\n";
+        std::cout << "usage: type query without slash\n";
         return;
     }
     if(active_index_ != "FlatVector"){
