@@ -9,6 +9,9 @@
 #include <unordered_set>
 
 namespace {
+constexpr const char* kFileColor = "\033[38;2;66;233;253m";
+constexpr const char* kResetColor = "\033[0m";
+
 void ShowBanner(){
     std::cout << R"(
    ____                 __     ____          _         
@@ -51,6 +54,30 @@ std::string CategoryFromPath(const std::filesystem::path& path){
     const auto parent = path.parent_path().filename().string();
     if(!parent.empty())return parent;
     return "default";
+}
+
+IdType LastStorageId(const DocumentStorage& storage){
+    IdType last_id = 0;
+    for(const auto& [id, ad] : storage.All()){
+        last_id = std::max(last_id, id);
+    }
+    return last_id;
+}
+
+std::string FullPath(const std::filesystem::path& path){
+    return std::filesystem::absolute(path).lexically_normal().string();
+}
+
+std::string HighlightFilename(const std::string& path_str){
+    const std::filesystem::path path(path_str);
+    const auto filename = path.filename().string();
+    const auto parent = path.parent_path().string();
+
+    if(filename.empty())return path_str;
+    if(parent.empty())return std::string(kFileColor) + filename + kResetColor;
+
+    return parent + std::string(1, std::filesystem::path::preferred_separator) +
+           kFileColor + filename + kResetColor;
 }
 
 std::string FormatBytes(std::size_t bytes){
@@ -216,6 +243,7 @@ void Cli::Load(const std::string& path_str){
         if(text.empty())continue;
 
         flat_index_.Add(Ad(file.filename().string(), text, CategoryFromPath(file)));
+        file_paths_[LastStorageId(storage_)] = FullPath(file);
         loaded++;
     }
 
@@ -230,6 +258,7 @@ void Cli::Unload(){
     active_paths_.clear();
     filters_.clear();
     current_query_.clear();
+    file_paths_.clear();
     flat_index_.Clear();
     std::cout << "index and active paths cleared\n";
 }
@@ -287,9 +316,13 @@ void Cli::Search(const std::string& query){
     for(const auto& result : results){
         const auto ad = flat_index_.Get(result.ad_id);
         if(!ad.has_value())continue;
+        const auto path_it = file_paths_.find(result.ad_id);
+        const std::string path = path_it == file_paths_.end()
+            ? ad->title
+            : HighlightFilename(path_it->second);
 
         std::cout << '[' << result.ad_id << "] "
-                  << ad->title
+                  << path
                   << " | category: " << ad->category
                   << " | score: " << std::fixed << std::setprecision(4) << result.score
                   << '\n';
