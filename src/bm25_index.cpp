@@ -26,7 +26,8 @@ static std::vector<std::string> Tokenize(const std::string& text) {
     return terms;
 }
 
-Bm25Index::Bm25Index(double k1, double b) : k1_(k1), b_(b) {
+Bm25Index::Bm25Index(DocumentStorage& storage, double k1, double b)
+    : Index(storage), k1_(k1), b_(b) {
     if (k1_ <= 0.0) {
         throw std::invalid_argument("BM25 k1 must be positive");
     }
@@ -37,8 +38,8 @@ Bm25Index::Bm25Index(double k1, double b) : k1_(k1), b_(b) {
 
 IndexType Bm25Index::Type() const noexcept { return IndexType::InvertedBm25; }
 
-void Bm25Index::Add(Ad& ad) {
-    ad.SetID(last_id++);
+void Bm25Index::Add(const Ad& ad) {
+    IdType id = storage_.Add(ad);
 
     const auto terms = Tokenize(ad.Text());
     std::unordered_map<std::string, size_t> term_frequencies;
@@ -51,15 +52,13 @@ void Bm25Index::Add(Ad& ad) {
         postings_[term][ad.GetID()] = frequency;
     }
 
-    ads_[ad.GetID()] = ad;
-    document_lengths[ad.GetID()] = terms.size();
+    document_lengths[id] = terms.size();
     total_document_length_ += terms.size();
     ++category_counts_[ad.category];
 }
 
 void Bm25Index::Remove(IdType ad_id) {
-    const auto ad_it = ads_.find(ad_id);
-    if (ad_it == ads_.end()) {
+    if (!storage_.Remove(ad_id)) {
         return;
     }
 
@@ -68,6 +67,7 @@ void Bm25Index::Remove(IdType ad_id) {
         return;
     }
     total_document_length_ -= length_it->second;
+    document_lengths.erase(length_it);
 
     for (auto it = postings_.begin(); it != postings_.end();) {
         it->second.erase(ad_id);
@@ -78,20 +78,19 @@ void Bm25Index::Remove(IdType ad_id) {
         }
     }
 
-    const auto category_it = category_counts_.find(ad_it->second.category);
+    const auto ad = storage_.Get(ad_id);
+    const auto category_it = category_counts_.find(ad.value().category);
     if (category_it != category_counts_.end()) {
         --category_it->second;
         if (category_it->second == 0) {
             category_counts_.erase(category_it);
         }
     }
-
-    ads_.erase(ad_it);
 }
 
 std::vector<SearchResult> Bm25Index::Search(
     const std::string& query, const SearchOptions& options) const {
-    if (ads_.empty() || options.top_k == 0) {
+    if (storage_.Empty() || options.top_k == 0) {
         return {};
     }
 
@@ -100,7 +99,7 @@ std::vector<SearchResult> Bm25Index::Search(
         return {};
     }
 
-    std::unordered_map<int, double> scores;
+    std::unordered_map<IdType, double> scores;
 
     for (const auto& term : query_terms) {
         const auto postings_it = postings_.find(term);
@@ -154,12 +153,12 @@ std::vector<SearchResult> Bm25Index::Search(
 }
 
 std::optional<Ad> Bm25Index::Get(IdType ad_id) const {
-    const auto it = ads_.find(ad_id);
-    if (it == ads_.end()) {
+    const auto ad = storage_.Get(ad_id);
+    if (!ad.has_value()) {
         return std::nullopt;
     }
 
-    return it->second;
+    return ad.value();
 }
 
 IndexStats Bm25Index::Stats() const {
@@ -169,37 +168,38 @@ IndexStats Bm25Index::Stats() const {
     }
 
     IndexStats stats;
-    stats.documents_count = ads_.size();
+    stats.documents_count = storage_.Size();
     stats.categories_count = category_counts_.size();
     stats.embedding_dimension = 0;
-    stats.memory_bytes = ads_.size() * sizeof(Ad) +
+    stats.memory_bytes = storage_.Size() * sizeof(Ad) +
                          postings_.size() * sizeof(std::string) +
                          postings_count * (sizeof(int) + sizeof(size_t));
 
     return stats;
 }
 
-std::size_t Bm25Index::Size() const { return ads_.size(); }
-
 void Bm25Index::Clear() {
-    ads_.clear();
     postings_.clear();
     category_counts_.clear();
+    document_lengths.clear();
     total_document_length_ = 0;
 }
 
-bool Bm25Index::MatchesCategory(IdType ad_id, const SearchOptions& options) const {
+bool Bm25Index::MatchesCategory(IdType ad_id,
+                                const SearchOptions& options) const {
     if (!options.category.has_value()) {
         return true;
     }
 
-    const auto ad_it = ads_.find(ad_id);
-    return ad_it != ads_.end() && ad_it->second.category == *options.category;
+    const auto ad = storage_.Get(ad_id);
+
+    return ad.has_value() &&
+           ad.value().category == *options.category;
 }
 
 double Bm25Index::ScoreTerm(size_t term_frequency, size_t document_frequency,
                             size_t document_length) const {
-    const double documents_count = ads_.size();
+    const double documents_count = storage_.Size();
     const double df = document_frequency;
     const double tf = term_frequency;
     const double dl = document_length;
@@ -209,7 +209,7 @@ double Bm25Index::ScoreTerm(size_t term_frequency, size_t document_frequency,
     if (average_document_length == 0.0) {
         return 0.0;
     }
-    
+
     const double IDF =
         std::log(1.0 + (documents_count - df + 0.5) / (df + 0.5));
     const double length_penalty = 1.0 - b_ + b_ * dl / average_document_length;

@@ -10,11 +10,11 @@
 class Bm25Index final : public Index {
    public:
     Bm25Index() = default;
-    Bm25Index(double k1, double b);
+    Bm25Index(DocumentStorage& storage, double k1, double b);
 
     IndexType Type() const noexcept override;
 
-    void Add(Ad& ad) override;
+    void Add(const Ad& ad) override;
 
     void Remove(IdType ad_id);
 
@@ -25,7 +25,7 @@ class Bm25Index final : public Index {
 
     IndexStats Stats() const override;
 
-    std::size_t Size() const override;
+    size_t Size() const override { return storage_.Size(); }
 
     void Clear() override;
 
@@ -43,5 +43,4 @@ class Bm25Index final : public Index {
     std::unordered_map<std::string, size_t> category_counts_;
     std::unordered_map<IdType, size_t> document_lengths;
     size_t total_document_length_ = 0;
-    size_t last_id = 0;
 };
