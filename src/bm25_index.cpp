@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <mutex>
 #include <numeric>
 #include <stdexcept>
 
@@ -39,9 +40,15 @@ Bm25Index::Bm25Index(DocumentStorage& storage, double k1, double b)
 IndexType Bm25Index::Type() const noexcept { return IndexType::InvertedBm25; }
 
 void Bm25Index::Add(const Ad& ad) {
-    IdType id = storage_.Add(ad);
+    std::unique_lock lock(mutex_);
 
-    const auto terms = Tokenize(ad.Text());
+    IdType id = storage_.Add(ad);
+    const auto saved_ad = storage_.Get(id);
+    if (!saved_ad.has_value()) {
+        return;
+    }
+
+    const auto terms = Tokenize(saved_ad->Text());
     std::unordered_map<std::string, size_t> term_frequencies;
 
     for (const auto& term : terms) {
@@ -49,16 +56,19 @@ void Bm25Index::Add(const Ad& ad) {
     }
 
     for (const auto& [term, frequency] : term_frequencies) {
-        postings_[term][ad.GetID()] = frequency;
+        postings_[term][id] = frequency;
     }
 
     document_lengths[id] = terms.size();
     total_document_length_ += terms.size();
-    ++category_counts_[ad.category];
+    ++category_counts_[saved_ad->category];
 }
 
 void Bm25Index::Remove(IdType ad_id) {
-    if (!storage_.Remove(ad_id)) {
+    std::unique_lock lock(mutex_);
+
+    const auto ad = storage_.Get(ad_id);
+    if (!ad.has_value()) {
         return;
     }
 
@@ -78,18 +88,21 @@ void Bm25Index::Remove(IdType ad_id) {
         }
     }
 
-    const auto ad = storage_.Get(ad_id);
-    const auto category_it = category_counts_.find(ad.value().category);
+    const auto category_it = category_counts_.find(ad->category);
     if (category_it != category_counts_.end()) {
         --category_it->second;
         if (category_it->second == 0) {
             category_counts_.erase(category_it);
         }
     }
+
+    storage_.Remove(ad_id);
 }
 
 std::vector<SearchResult> Bm25Index::Search(
     const std::string& query, const SearchOptions& options) const {
+    std::shared_lock lock(mutex_);
+
     if (storage_.Empty() || options.top_k == 0) {
         return {};
     }
@@ -153,6 +166,8 @@ std::vector<SearchResult> Bm25Index::Search(
 }
 
 std::optional<Ad> Bm25Index::Get(IdType ad_id) const {
+    std::shared_lock lock(mutex_);
+
     const auto ad = storage_.Get(ad_id);
     if (!ad.has_value()) {
         return std::nullopt;
@@ -162,23 +177,28 @@ std::optional<Ad> Bm25Index::Get(IdType ad_id) const {
 }
 
 IndexStats Bm25Index::Stats() const {
+    std::shared_lock lock(mutex_);
+
     std::size_t postings_count = 0;
     for (const auto& [word, documents] : postings_) {
         postings_count += documents.size();
     }
 
     IndexStats stats;
-    stats.documents_count = storage_.Size();
+    stats.documents_count = document_lengths.size();
     stats.categories_count = category_counts_.size();
     stats.embedding_dimension = 0;
     stats.memory_bytes = storage_.Size() * sizeof(Ad) +
                          postings_.size() * sizeof(std::string) +
-                         postings_count * (sizeof(int) + sizeof(size_t));
+                         postings_count * (sizeof(IdType) + sizeof(size_t));
 
     return stats;
 }
 
 void Bm25Index::Clear() {
+    std::unique_lock lock(mutex_);
+
+    storage_.Clear();
     postings_.clear();
     category_counts_.clear();
     document_lengths.clear();
@@ -187,18 +207,21 @@ void Bm25Index::Clear() {
 
 bool Bm25Index::MatchesCategory(IdType ad_id,
                                 const SearchOptions& options) const {
+    std::shared_lock lock(mutex_);
+
     if (!options.category.has_value()) {
         return true;
     }
 
     const auto ad = storage_.Get(ad_id);
 
-    return ad.has_value() &&
-           ad.value().category == *options.category;
+    return ad.has_value() && ad.value().category == *options.category;
 }
 
 double Bm25Index::ScoreTerm(size_t term_frequency, size_t document_frequency,
                             size_t document_length) const {
+    std::shared_lock lock(mutex_);
+
     const double documents_count = storage_.Size();
     const double df = document_frequency;
     const double tf = term_frequency;

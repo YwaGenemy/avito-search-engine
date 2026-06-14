@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <shared_mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -10,22 +11,20 @@ class DocumentStorage {
    public:
     IdType Add(Ad ad);
 
-    bool Remove(IdType id) { return ads_.erase(id) > 0; }
+    bool Remove(IdType id);
 
     std::optional<Ad> Get(IdType id) const;
 
-    const std::unordered_map<IdType, Ad>& All() const { return ads_; }
+    std::unordered_map<IdType, Ad> All() const;
 
-    size_t Size() const { return ads_.size(); }
+    size_t Size() const;
 
-    bool Empty() const { return ads_.empty(); }
+    bool Empty() const;
 
-    void Clear() {
-        ads_.clear();
-        next_id_ = 1;
-    }
+    void Clear();
 
    private:
+    mutable std::shared_mutex mutex_;
     IdType next_id_ = 1;
     std::unordered_map<IdType, Ad> ads_;
 };
