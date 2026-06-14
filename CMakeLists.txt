@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(search_engine_core
-    # src/bm25_index.cpp
     src/storage.cpp
     # src/bm25_index.cpp
     src/bm25_index.cpp
