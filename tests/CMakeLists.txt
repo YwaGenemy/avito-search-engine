@@ -16,16 +16,10 @@ endif()
 add_executable(search_engine_tests
     embedder_test.cpp
     flat_vector_test.cpp
-    ../src/embedder.cpp
-    ../src/flat_vector.cpp
-    ../src/storage.cpp
-)
-
-target_include_directories(search_engine_tests PRIVATE
-    ../include
 )
 
 target_link_libraries(search_engine_tests PRIVATE
+    search_engine_core
     GTest::gtest_main
 )
 
