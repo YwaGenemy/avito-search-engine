@@ -1,6 +1,6 @@
-#include <iostream>
+#include "cli.h"
 
 int main() {
-    std::cout << "Avito search engine skeleton\n";
-    
+    Cli cli;
+    cli.Run();
 }
