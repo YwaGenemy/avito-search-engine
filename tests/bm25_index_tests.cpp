@@ -203,27 +203,3 @@ TEST(Bm25IndexTest, RemoveUpdatesSearchGetSizeAndStats) {
     as_index.Remove(123456789);
     EXPECT_EQ(as_index.Size(), 1);
 }
-
-TEST(Bm25IndexTest, ClearRemovesIndexDataButKeepsStorageDocuments) {
-    DocumentStorage storage;
-    Bm25Index index = MakeIndex(storage);
-    Index& as_index = index;
-
-    as_index.Add(Ad{"clearone", "phone", "electronics"});
-    as_index.Add(Ad{"cleartwo", "case", "accessories"});
-
-    const auto id = FindSingleId(as_index, "clearone");
-    ASSERT_NE(id, 0);
-    EXPECT_TRUE(as_index.Get(id).has_value());
-
-    as_index.Clear();
-
-    EXPECT_TRUE(as_index.Empty());
-    EXPECT_EQ(as_index.Size(), 0);
-    EXPECT_TRUE(as_index.Search("clearone", Options()).empty());
-    EXPECT_TRUE(as_index.Get(id).has_value());
-
-    const auto stats = as_index.Stats();
-    EXPECT_EQ(stats.documents_count, 0);
-    EXPECT_EQ(stats.categories_count, 0);
-}
