@@ -166,7 +166,6 @@ class ThreadPool {
           tasks_info_[task.second].result = task.first.GetResult();
         }
         tasks_info_[task.second].status = TaskStatus::kCompleted;
-        tasks_info_.erase(task.second);
         ++count_completed_tasks_;
       }
       wait_all_cv.notify_all();
