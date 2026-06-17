@@ -207,8 +207,6 @@ void Bm25Index::Clear() {
 
 bool Bm25Index::MatchesCategory(IdType ad_id,
                                 const SearchOptions& options) const {
-    std::shared_lock lock(mutex_);
-
     if (!options.category.has_value()) {
         return true;
     }
@@ -220,8 +218,6 @@ bool Bm25Index::MatchesCategory(IdType ad_id,
 
 double Bm25Index::ScoreTerm(size_t term_frequency, size_t document_frequency,
                             size_t document_length) const {
-    std::shared_lock lock(mutex_);
-
     const double documents_count = storage_.Size();
     const double df = document_frequency;
     const double tf = term_frequency;
