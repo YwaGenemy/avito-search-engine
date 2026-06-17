@@ -1,4 +1,5 @@
 #include <any>
+#include <concepts>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -20,7 +21,7 @@ class TaskInfo {
   void Wait() {
     std::unique_lock lock(mutex_);
 
-    complete_.wait(lock, [&] { return status_ == TaskStatus::kCompleted; });
+    complete_.wait(lock, [this] { return status_ == TaskStatus::kCompleted; });
   }
 
   std::optional<std::any> GetResult() { return result_; }
@@ -38,62 +39,39 @@ class Task {
  public:
   Task() = default;
 
-  template <typename Ret, typename... FuncTypes, typename... Args>
-    requires std::is_invocable_r_v<Ret, Ret (*)(FuncTypes...), Args...>
-  Task(Ret (*func)(FuncTypes...), Args&&... args)
-      : is_void_(std::is_void_v<Ret>), info_(std::make_shared<TaskInfo>()) {
-    if constexpr (std::is_void_v<Ret>) {
-      void_func = std::bind(func, args...);
-      any_func = []() -> int { return 0; };
-    } else {
-      any_func = std::bind(func, args...);
-      void_func = []() -> void {};
-    }
-  }
+  template <typename Func, typename... Args>
+    requires(!std::same_as<std::remove_cvref_t<Func>, Task> &&
+             std::is_invocable_v<Func, Args...>)
+  Task(Func&& func, Args&&... args) : info_(std::make_shared<TaskInfo>()) {
+    using Ret = std::invoke_result_t<Func, Args...>;
 
-  template <typename Object, typename Ret, typename... FuncTypes,
-            typename... Args>
-    requires std::is_invocable_r_v<Ret, Ret (Object::*)(FuncTypes...), Object&,
-                                   Args...>
-  Task(Object& obj, Ret (Object::*method)(FuncTypes...), Args&&... args)
-      : is_void_(std::is_void_v<Ret>), info_(std::make_shared<TaskInfo>()) {
-    if constexpr (std::is_void_v<Ret>) {
-      void_func = [&obj, method, args...]() -> void {
-        return obj.*method(args...);
-      };
-      any_func = []() -> int { return 0; };
-    } else {
-      any_func = [&obj, method, args...]() { return obj.*method(args...); };
-      void_func = []() -> void {};
-    }
+    func_ = [func = std::forward<Func>(func),
+             ... args = std::forward<Args>(
+                 args)]() mutable -> std::optional<std::any> {
+      if constexpr (std::is_void_v<Ret>) {
+        std::invoke(func, args...);
+        return std::nullopt;
+      } else {
+        return std::any(std::invoke(func, args...));
+      }
+    };
   }
 
   void operator()() {
-    if (is_void_) {
-      void_func();
-      {
-        std::unique_lock lock(info_->mutex_);
-        info_->result_ = std::nullopt;
-        info_->status_ = TaskStatus::kCompleted;
-      }
-    } else {
-      {
-        std::unique_lock lock(info_->mutex_);
-        info_->result_ = any_func();
-        info_->status_ = TaskStatus::kCompleted;
-      }
+    {
+      std::unique_lock lock(info_->mutex_);
+      info_->result_ = func_();
+      info_->status_ = TaskStatus::kCompleted;
     }
     info_->complete_.notify_all();
   }
 
-  bool operator!() { return !any_func && !void_func; }
+  bool operator!() { return !func_; }
 
  private:
   friend ThreadPool;
 
-  std::function<std::any()> any_func;
-  std::function<void()> void_func;
-  bool is_void_;
+  std::function<std::optional<std::any>()> func_;
   std::shared_ptr<TaskInfo> info_;
 };
 
@@ -174,26 +152,10 @@ class ThreadPool {
     for (auto& t : threads_) t.join();
   }
 
-  template <typename Ret, typename... FuncTypes, typename... Args>
-  std::shared_ptr<TaskInfo> AddTask(Ret (*func)(FuncTypes...), Args&&... args) {
+  template <typename Func, typename... Args>
+  std::shared_ptr<TaskInfo> AddTask(Func&& func, Args&&... args) {
     auto i = index_++;
-    auto task = Task(func, std::forward<Args>(args)...);
-
-    for (unsigned n = 0; n != count_ * 10; ++n) {
-      if (queue_[(i + n) % count_].TryPush(task)) return task.info_;
-    }
-    queue_[i % count_].Push(std::move(task));
-
-    return task.info_;
-  }
-
-  template <typename Object, typename Ret, typename... FuncTypes,
-            typename... Args>
-  std::shared_ptr<TaskInfo> AddTask(Object& obj,
-                                    Ret (Object::*method)(FuncTypes...),
-                                    Args&&... args) {
-    auto i = index_++;
-    auto task = Task(obj, method, std::forward<Args>(args)...);
+    auto task = Task(std::forward<Func>(func), std::forward<Args>(args)...);
 
     for (unsigned n = 0; n != count_ * 10; ++n) {
       if (queue_[(i + n) % count_].TryPush(task)) return task.info_;
