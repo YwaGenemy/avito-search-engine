@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -9,7 +10,6 @@
 
 class Bm25Index final : public Index {
    public:
-    Bm25Index() = default;
     Bm25Index(DocumentStorage& storage, double k1, double b);
 
     IndexType Type() const noexcept override;
@@ -21,11 +21,11 @@ class Bm25Index final : public Index {
     std::vector<SearchResult> Search(
         const std::string& query, const SearchOptions& options) const override;
 
-    std::optional<Ad> Get(uint64_t ad_id) const override;
+    std::optional<Ad> Get(IdType ad_id) const override;
 
     IndexStats Stats() const override;
 
-    size_t Size() const override { return storage_.Size(); }
+    size_t Size() const override { return document_lengths.size(); }
 
     void Clear() override;
 
@@ -38,6 +38,8 @@ class Bm25Index final : public Index {
 
     double k1_ = 1.5;
     double b_ = 0.75;
+
+    mutable std::shared_mutex mutex_;
 
     std::unordered_map<std::string, TermFrequencyByDocument> postings_;
     std::unordered_map<std::string, size_t> category_counts_;
