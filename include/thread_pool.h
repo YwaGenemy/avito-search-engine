@@ -1,4 +1,5 @@
 #include <any>
+#include <concepts>
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
@@ -12,75 +13,134 @@
 
 enum class TaskStatus { kAwaiting, kCompleted };
 
-struct TaskInfo {
-  TaskStatus status = TaskStatus::kAwaiting;
-  std::any result;
-};
+class Task;
+class ThreadPool;
 
-struct Thread {
-  std::thread _thread;
-  std::atomic<bool> is_working;
+class TaskInfo {
+ public:
+  void Wait() {
+    std::unique_lock lock(mutex_);
+
+    complete_.wait(lock, [this] { return status_ == TaskStatus::kCompleted; });
+  }
+
+  std::optional<std::any> GetResult() { return result_; }
+
+ private:
+  friend Task;
+
+  TaskStatus status_{TaskStatus::kAwaiting};
+  std::optional<std::any> result_;
+  std::mutex mutex_;
+  std::condition_variable complete_;
 };
 
 class Task {
  public:
-  template <typename Ret, typename... FuncTypes, typename... Args>
-    requires std::is_invocable_r_v<Ret, Ret (*)(FuncTypes...), Args...>
-  Task(Ret (*func)(FuncTypes...), Args&&... args)
-      : is_void_(std::is_void_v<Ret>) {
-    if constexpr (std::is_void_v<Ret>) {
-      void_func = std::bind(func, args...);
-      any_func = []() -> int { return 0; };
-    } else {
-      any_func = std::bind(func, args...);
-      ;
-      void_func = []() -> void {};
-    }
-  }
+  Task() = default;
 
-  template <typename Object, typename Ret, typename... FuncTypes,
-            typename... Args>
-    requires std::is_invocable_r_v<Ret, Ret (Object::*)(FuncTypes...), Object&,
-                                   Args...>
-  Task(Object& obj, Ret (Object::*method)(FuncTypes...), Args&&... args)
-      : is_void_(std::is_void_v<Ret>) {
-    if constexpr (std::is_void_v<Ret>) {
-      void_func = [&obj, method, args...]() -> void {
-        return obj.*method(args...);
-      };
-      any_func = []() -> int { return 0; };
-    } else {
-      any_func = [&obj, method, args...]() { return obj.*method(args...); };
-      void_func = []() -> void {};
-    }
+  template <typename Func, typename... Args>
+    requires(!std::same_as<std::remove_cvref_t<Func>, Task> &&
+             std::is_invocable_v<Func, Args...>)
+  Task(Func&& func, Args&&... args) : info_(std::make_shared<TaskInfo>()) {
+    using Ret = std::invoke_result_t<Func, Args...>;
+
+    func_ = [func = std::forward<Func>(func),
+             ... args = std::forward<Args>(
+                 args)]() mutable -> std::optional<std::any> {
+      if constexpr (std::is_void_v<Ret>) {
+        std::invoke(func, args...);
+        return std::nullopt;
+      } else {
+        return std::any(std::invoke(func, args...));
+      }
+    };
   }
 
   void operator()() {
-    void_func();
-    any_result = any_func();
+    {
+      std::unique_lock lock(info_->mutex_);
+      info_->result_ = func_();
+      info_->status_ = TaskStatus::kCompleted;
+    }
+    info_->complete_.notify_all();
   }
 
-  std::optional<std::any> GetResult() const {
-    if (is_void_ || !any_result.has_value()) {
-      return std::nullopt;
-    }
+  bool operator!() { return !func_; }
 
-    return any_result;
+ private:
+  friend ThreadPool;
+
+  std::function<std::optional<std::any>()> func_;
+  std::shared_ptr<TaskInfo> info_;
+};
+
+class NotificationQueue {
+  using lock_t = std::unique_lock<std::mutex>;
+
+ public:
+  void Done() {
+    {
+      lock_t lock(mutex_);
+      done_ = true;
+    }
+    ready_.notify_all();
+  }
+
+  bool Pop(Task& task) {
+    lock_t lock(mutex_);
+
+    ready_.wait(lock, [this] { return !task_q_.empty() || done_; });
+    if (task_q_.empty()) return false;
+
+    task = std::move(task_q_.front());
+    task_q_.pop();
+    return true;
+  }
+
+  template <typename T>
+  void Push(T&& task) {
+    {
+      lock_t lock(mutex_);
+      task_q_.emplace(std::forward<T>(task));
+    }
+    ready_.notify_one();
+  }
+
+  bool TryPop(Task& task) {
+    lock_t lock(mutex_, std::try_to_lock);
+
+    if (!lock || task_q_.empty()) return false;
+
+    task = std::move(task_q_.front());
+    task_q_.pop();
+    return true;
+  }
+
+  template <typename T>
+  bool TryPush(T&& task) {
+    {
+      lock_t lock(mutex_, std::try_to_lock);
+      if (!lock) return false;
+      task_q_.emplace(std::forward<T>(task));
+    }
+    ready_.notify_one();
+    return true;
   }
 
  private:
-  std::function<std::any()> any_func;
-  std::function<void()> void_func;
-  std::any any_result;
-  bool is_void_;
+  std::queue<Task> task_q_;
+  bool done_{false};
+  std::mutex mutex_;
+  std::condition_variable ready_;
 };
 
 class ThreadPool {
  public:
-  ThreadPool(size_t count_threads) {
-    threads_.reserve(count_threads);
-    for (size_t i = 0; i < count_threads; ++i) {
-      threads_.emplace_back(&ThreadPool::Run, this);
+  ThreadPool() {
+    threads_.reserve(count_);
+    for (unsigned i = 0; i < count_; ++i) {
+      threads_.emplace_back([this, i] { Run(i); });
     }
   }
 
@@ -88,105 +148,38 @@ class ThreadPool {
   ThreadPool operator=(const ThreadPool&) = delete;
 
   ~ThreadPool() {
-    quite_ = true;
-    queue_cv_.notify_all();
-    for (size_t i = 0; i < threads_.size(); ++i) {
-      threads_[i].join();
+    for (auto& q : queue_) q.Done();
+    for (auto& t : threads_) t.join();
+  }
+
+  template <typename Func, typename... Args>
+  std::shared_ptr<TaskInfo> AddTask(Func&& func, Args&&... args) {
+    auto i = index_++;
+    auto task = Task(std::forward<Func>(func), std::forward<Args>(args)...);
+
+    for (unsigned n = 0; n != count_ * 10; ++n) {
+      if (queue_[(i + n) % count_].TryPush(task)) return task.info_;
     }
-  }
+    queue_[i % count_].Push(std::move(task));
 
-  template <typename Ret, typename... FuncTypes, typename... Args>
-  uint64_t AddTask(Ret (*func)(FuncTypes...), Args&&... args) {
-    const uint64_t id = last_id_++;
-
-    std::unique_lock<std::mutex> lock(tasks_info_mutex_);
-    tasks_info_[id] = TaskInfo{};
-    lock.unlock();
-
-    std::lock_guard<std::mutex> queue_lock(queue_mtx_);
-    task_queue_.emplace(Task(func, std::forward<Args>(args)...), id);
-    queue_cv_.notify_one();
-    return id;
-  }
-
-  template <typename Object, typename Ret, typename... FuncTypes,
-            typename... Args>
-  uint64_t AddTask(Object& obj, Ret (Object::*method)(FuncTypes...),
-                   Args&&... args) {
-    const uint64_t id = last_id_++;
-
-    std::unique_lock<std::mutex> lock(tasks_info_mutex_);
-    tasks_info_[id] = TaskInfo{};
-    lock.unlock();
-
-    std::lock_guard<std::mutex> queue_lock(queue_mtx_);
-    task_queue_.emplace(Task(obj, method, std::forward<Args>(args)...), id);
-    queue_cv_.notify_one();
-    return id;
-  }
-
-  void Wait(uint64_t task_id) {
-    std::unique_lock<std::mutex> lock(tasks_info_mutex_);
-    tasks_info_cv_.wait(lock, [this, task_id]() -> bool {
-      return task_id < last_id_ &&
-             tasks_info_[task_id].status == TaskStatus::kCompleted;
-    });
-  }
-
-  std::any WaitResult(uint64_t task_id) {
-    std::unique_lock<std::mutex> lock(tasks_info_mutex_);
-    tasks_info_cv_.wait(lock, [this, task_id]() -> bool {
-      return task_id < last_id_ &&
-             tasks_info_[task_id].status == TaskStatus::kCompleted;
-    });
-    return tasks_info_[task_id].result;
-  }
-
-  void WaitAll() {
-    std::unique_lock<std::mutex> lock(tasks_info_mutex_);
-    wait_all_cv.wait(
-        lock, [this]() -> bool { return count_completed_tasks_ == last_id_; });
+    return task.info_;
   }
 
  private:
-  void Run() {
-    while (!quite_) {
-      std::unique_lock<std::mutex> lock(queue_mtx_);
-      queue_cv_.wait(lock, [this]() { return !task_queue_.empty() || quite_; });
-
-      if (!task_queue_.empty() && !quite_) {
-        auto task = std::move(task_queue_.front());
-        task_queue_.pop();
-        lock.unlock();
-
-        task.first();
-
-        std::lock_guard<std::mutex> lock(tasks_info_mutex_);
-        if (task.first.GetResult().has_value()) {
-          tasks_info_[task.second].result = task.first.GetResult();
-        }
-        tasks_info_[task.second].status = TaskStatus::kCompleted;
-        tasks_info_.erase(task.second);
-        ++count_completed_tasks_;
+  void Run(unsigned i) {
+    while (true) {
+      Task task;
+      for (unsigned n = 0; n != count_; ++n) {
+        if (queue_[(i + n) % count_].TryPop(task)) break;
       }
-      wait_all_cv.notify_all();
-      tasks_info_cv_.notify_all();
+      if (!task && !queue_[i].Pop(task)) break;
+
+      task();
     }
   }
 
+  const unsigned count_{std::thread::hardware_concurrency()};
   std::vector<std::thread> threads_;
-
-  std::queue<std::pair<Task, uint64_t>> task_queue_;
-  std::mutex queue_mtx_;
-  std::condition_variable queue_cv_;
-
-  std::unordered_map<uint64_t, TaskInfo> tasks_info_;
-  std::condition_variable tasks_info_cv_;
-  std::mutex tasks_info_mutex_;
-
-  std::condition_variable wait_all_cv;
-
-  std::atomic<bool> quite_ = false;
-  std::atomic<uint64_t> last_id_ = 0;
-  std::atomic<size_t> count_completed_tasks_ = 0;
+  std::vector<NotificationQueue> queue_{count_};
+  std::atomic<unsigned> index_{0};
 };
