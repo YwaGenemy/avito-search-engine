@@ -49,7 +49,7 @@ void Bm25Index::Add(const Ad& ad) {
     }
 
     for (const auto& [term, frequency] : term_frequencies) {
-        postings_[term][ad.GetID()] = frequency;
+        postings_[term][id] = frequency;
     }
 
     document_lengths[id] = terms.size();
@@ -58,7 +58,8 @@ void Bm25Index::Add(const Ad& ad) {
 }
 
 void Bm25Index::Remove(IdType ad_id) {
-    if (!storage_.Remove(ad_id)) {
+    const auto ad = storage_.Get(ad_id);
+    if (!ad.has_value()) {
         return;
     }
 
@@ -78,14 +79,15 @@ void Bm25Index::Remove(IdType ad_id) {
         }
     }
 
-    const auto ad = storage_.Get(ad_id);
-    const auto category_it = category_counts_.find(ad.value().category);
+    const auto category_it = category_counts_.find(ad->category);
     if (category_it != category_counts_.end()) {
         --category_it->second;
         if (category_it->second == 0) {
             category_counts_.erase(category_it);
         }
     }
+
+    storage_.Remove(ad_id);
 }
 
 std::vector<SearchResult> Bm25Index::Search(
