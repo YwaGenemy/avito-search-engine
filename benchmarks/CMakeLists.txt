@@ -10,13 +10,21 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
+FetchContent_Declare(
+    nlohmann_json
+    URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googlebenchmark)
+FetchContent_MakeAvailable(nlohmann_json)
 
 add_executable(search_bench
     search_bench.cpp
+    dataset_loader.cpp
     ../src/storage.cpp
     ../src/embedder.cpp
     ../src/flat_vector.cpp
@@ -28,4 +36,5 @@ target_include_directories(search_bench PRIVATE
 
 target_link_libraries(search_bench PRIVATE
     benchmark::benchmark
+    nlohmann_json::nlohmann_json
 )
