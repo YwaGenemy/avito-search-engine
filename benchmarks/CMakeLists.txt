@@ -26,6 +26,7 @@ add_executable(search_bench
     search_bench.cpp
     dataset_loader.cpp
     ../src/storage.cpp
+    ../src/bm25_index.cpp
     ../src/embedder.cpp
     ../src/flat_vector.cpp
 )
