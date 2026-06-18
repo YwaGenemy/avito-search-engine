@@ -101,9 +101,16 @@ static void BM_Bm25Search(benchmark::State& state) {
     state.SetItemsProcessed(state.iterations());
 }
 
+static void BM_HnswSearch(benchmark::State& state) {
+    (void)state;
+    state.SkipWithError("HNSW is not implemented yet");
+}
+
 BENCHMARK(BM_FlatVectorSearch)
     ->Unit(benchmark::kMillisecond);
 BENCHMARK(BM_Bm25Search)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_HnswSearch)
     ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
