@@ -1,75 +1,62 @@
 #include <benchmark/benchmark.h>
 
-#include <array>
+#include <cstdlib>
+#include <exception>
 #include <string>
 #include <vector>
 
-#include "ad.h"
+#include "dataset_loader.h"
 #include "flat_vector.h"
-#include "search_options.h"
 #include "storage.h"
 
 namespace {
 
-std::vector<Ad> BuildSyntheticAds(std::size_t count) {
-    const std::array<std::string, 5> categories = {
-        "phones", "cars", "furniture", "clothes", "realty"};
-
-    const std::array<std::string, 5> items = {
-        "iPhone 13", "BMW X5", "corner sofa", "winter jacket", "studio"};
-
-    std::vector<Ad> ads;
-    ads.reserve(count);
-
-    for (std::size_t i = 0; i < count; ++i) {
-        const std::string& category = categories[i % categories.size()];
-        const std::string& item = items[i % items.size()];
-
-        ads.emplace_back(
-            "Sell " + item,
-            item + " synthetic ad #" + std::to_string(i),
-            category
-        );
+std::string ResolveDatasetPath() {
+    const char* env_path = std::getenv("BENCHMARK_DATASET");
+    if (env_path != nullptr && env_path[0] != '\0') {
+        return std::string(env_path);
     }
-
-    return ads;
+    return "benchmarks/data/dataset.json";
 }
 
-std::vector<std::string> BuildSyntheticQueries() {
-    return {
-        "iphone",
-        "bmw",
-        "sofa",
-        "jacket",
-        "studio",
-        "cheap smartphone",
-        "family car"
-    };
+const BenchmarkDataset& GetDataset() {
+    static const BenchmarkDataset dataset = LoadDatasetFromJson(ResolveDatasetPath());
+    return dataset;
 }
 
 }  // namespace
 
 static void BM_FlatVectorSearch(benchmark::State& state) {
-    const std::size_t corpus_size = static_cast<std::size_t>(state.range(0));
+    const BenchmarkDataset* dataset = nullptr;
+    try {
+        dataset = &GetDataset();
+    } catch (const std::exception& ex) {
+        state.SkipWithError(ex.what());
+        return;
+    }
+
+    if (dataset->ads.empty()) {
+        state.SkipWithError("Dataset has no ads");
+        return;
+    }
+    if (dataset->queries.empty()) {
+        state.SkipWithError("Dataset has no queries");
+        return;
+    }
 
     DocumentStorage storage;
     FlatVectorIndex index(storage, 128);
 
-    const std::vector<Ad> ads = BuildSyntheticAds(corpus_size);
-    for (const Ad& ad : ads) {
+    for (const Ad& ad : dataset->ads) {
         index.Add(ad);
     }
 
-    const std::vector<std::string> queries = BuildSyntheticQueries();
-    SearchOptions options;
-    options.top_k = 10;
-
     std::size_t query_idx = 0;
     for (auto _ : state) {
-        const std::string& query = queries[query_idx % queries.size()];
+        const BenchmarkQuery& query = dataset->queries[query_idx % dataset->queries.size()];
         ++query_idx;
 
-        const std::vector<SearchResult> results = index.Search(query, options);
+        const std::vector<SearchResult> results = index.Search(query.text, query.options);
         benchmark::DoNotOptimize(results.size());
     }
 
@@ -77,8 +64,6 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
 }
 
 BENCHMARK(BM_FlatVectorSearch)
-    ->Arg(1000)
-    ->Arg(10000)
     ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
