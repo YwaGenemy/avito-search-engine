@@ -206,5 +206,9 @@ BENCHMARK(BM_Bm25Search)
     ->Threads(8);
 BENCHMARK(BM_HnswSearch)
     ->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_Bm25Search)
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_HnswSearch)
+    ->Unit(benchmark::kMillisecond);
 
 BENCHMARK_MAIN();
