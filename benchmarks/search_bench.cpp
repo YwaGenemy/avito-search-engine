@@ -1,5 +1,7 @@
 #include <benchmark/benchmark.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <exception>
 #include <string>
@@ -69,6 +71,21 @@ double ComputeRecallAtK(const std::vector<IdType>& relevant_ad_ids,
            static_cast<double>(relevant_set.size());
 }
 
+double ComputePercentileMs(std::vector<double> values, std::size_t percentile) {
+    if (values.empty()) {
+        return 0.0;
+    }
+
+    std::sort(values.begin(), values.end());
+
+    std::size_t index = ((values.size() - 1) * percentile) / 100;
+    if (index >= values.size()) {
+        index = values.size() - 1;
+    }
+
+    return values[index];
+}
+
 }  // namespace
 
 static void BM_FlatVectorSearch(benchmark::State& state) {
@@ -98,11 +115,13 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
 
     double recall10_sum = 0.0;
     double recall100_sum = 0.0;
+    std::vector<double> latencies_ms;
     std::size_t query_idx = 0;
     for (auto _ : state) {
         const BenchmarkQuery& query = dataset->queries[query_idx % dataset->queries.size()];
         ++query_idx;
 
+        const auto started_at = std::chrono::steady_clock::now();
         const std::vector<IdType> relevant_runtime_ids =
             ToRuntimeRelevantIds(query.relevant_ad_ids);
 
@@ -114,6 +133,10 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
         recall10_sum += ComputeRecallAtK(relevant_runtime_ids, results10, 10);
         recall100_sum += ComputeRecallAtK(relevant_runtime_ids, results100, 100);
         benchmark::DoNotOptimize(results10.size() + results100.size());
+        const auto finished_at = std::chrono::steady_clock::now();
+        const double latency_ms =
+            std::chrono::duration<double, std::milli>(finished_at - started_at).count();
+        latencies_ms.push_back(latency_ms);
     }
 
     if (state.iterations() > 0) {
@@ -126,6 +149,12 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
             benchmark::Counter(avg_recall10, benchmark::Counter::kAvgThreads);
         state.counters["Recall@100"] =
             benchmark::Counter(avg_recall100, benchmark::Counter::kAvgThreads);
+        state.counters["p50_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 50),
+            benchmark::Counter::kAvgThreads);
+        state.counters["p99_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 99),
+            benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
@@ -161,11 +190,13 @@ static void BM_Bm25Search(benchmark::State& state) {
 
     double recall10_sum = 0.0;
     double recall100_sum = 0.0;
+    std::vector<double> latencies_ms;
     std::size_t query_idx = 0;
     for (auto _ : state) {
         const BenchmarkQuery& query = dataset->queries[query_idx % dataset->queries.size()];
         ++query_idx;
 
+        const auto started_at = std::chrono::steady_clock::now();
         const std::vector<IdType> relevant_runtime_ids =
             ToRuntimeRelevantIds(query.relevant_ad_ids);
 
@@ -177,6 +208,10 @@ static void BM_Bm25Search(benchmark::State& state) {
         recall10_sum += ComputeRecallAtK(relevant_runtime_ids, results10, 10);
         recall100_sum += ComputeRecallAtK(relevant_runtime_ids, results100, 100);
         benchmark::DoNotOptimize(results10.size() + results100.size());
+        const auto finished_at = std::chrono::steady_clock::now();
+        const double latency_ms =
+            std::chrono::duration<double, std::milli>(finished_at - started_at).count();
+        latencies_ms.push_back(latency_ms);
     }
 
     if (state.iterations() > 0) {
@@ -189,6 +224,12 @@ static void BM_Bm25Search(benchmark::State& state) {
             benchmark::Counter(avg_recall10, benchmark::Counter::kAvgThreads);
         state.counters["Recall@100"] =
             benchmark::Counter(avg_recall100, benchmark::Counter::kAvgThreads);
+        state.counters["p50_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 50),
+            benchmark::Counter::kAvgThreads);
+        state.counters["p99_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 99),
+            benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
