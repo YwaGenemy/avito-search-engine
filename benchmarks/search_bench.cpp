@@ -109,9 +109,13 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
     DocumentStorage storage;
     FlatVectorIndex index(storage, 128);
 
+    const auto build_started_at = std::chrono::steady_clock::now();
     for (const Ad& ad : dataset->ads) {
         index.Add(ad);
     }
+    const auto build_finished_at = std::chrono::steady_clock::now();
+    const double build_ms =
+        std::chrono::duration<double, std::milli>(build_finished_at - build_started_at).count();
 
     double recall10_sum = 0.0;
     double recall100_sum = 0.0;
@@ -155,6 +159,8 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
         state.counters["p99_ms"] = benchmark::Counter(
             ComputePercentileMs(latencies_ms, 99),
             benchmark::Counter::kAvgThreads);
+        state.counters["build_ms"] =
+            benchmark::Counter(build_ms, benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
@@ -184,9 +190,13 @@ static void BM_Bm25Search(benchmark::State& state) {
     DocumentStorage storage;
     Bm25Index index(storage, 1.5, 0.75);
 
+    const auto build_started_at = std::chrono::steady_clock::now();
     for (const Ad& ad : dataset->ads) {
         index.Add(ad);
     }
+    const auto build_finished_at = std::chrono::steady_clock::now();
+    const double build_ms =
+        std::chrono::duration<double, std::milli>(build_finished_at - build_started_at).count();
 
     double recall10_sum = 0.0;
     double recall100_sum = 0.0;
@@ -230,6 +240,8 @@ static void BM_Bm25Search(benchmark::State& state) {
         state.counters["p99_ms"] = benchmark::Counter(
             ComputePercentileMs(latencies_ms, 99),
             benchmark::Counter::kAvgThreads);
+        state.counters["build_ms"] =
+            benchmark::Counter(build_ms, benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
