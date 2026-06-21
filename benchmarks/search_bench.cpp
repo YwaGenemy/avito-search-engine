@@ -127,7 +127,11 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
         state.counters["Recall@100"] =
             benchmark::Counter(avg_recall100, benchmark::Counter::kAvgThreads);
     }
-    state.SetItemsProcessed(state.iterations());
+    state.counters["QPS"] =
+        benchmark::Counter(static_cast<double>(state.iterations()),
+                           benchmark::Counter::kIsRate);
+    state.SetItemsProcessed(state.iterations() *
+                            static_cast<int64_t>(state.threads()));
 }
 
 static void BM_Bm25Search(benchmark::State& state) {
@@ -186,7 +190,11 @@ static void BM_Bm25Search(benchmark::State& state) {
         state.counters["Recall@100"] =
             benchmark::Counter(avg_recall100, benchmark::Counter::kAvgThreads);
     }
-    state.SetItemsProcessed(state.iterations());
+    state.counters["QPS"] =
+        benchmark::Counter(static_cast<double>(state.iterations()),
+                           benchmark::Counter::kIsRate);
+    state.SetItemsProcessed(state.iterations() *
+                            static_cast<int64_t>(state.threads()));
 }
 
 static void BM_HnswSearch(benchmark::State& state) {
@@ -204,10 +212,6 @@ BENCHMARK(BM_Bm25Search)
     ->Threads(1)
     ->Threads(4)
     ->Threads(8);
-BENCHMARK(BM_HnswSearch)
-    ->Unit(benchmark::kMillisecond);
-BENCHMARK(BM_Bm25Search)
-    ->Unit(benchmark::kMillisecond);
 BENCHMARK(BM_HnswSearch)
     ->Unit(benchmark::kMillisecond);
 
