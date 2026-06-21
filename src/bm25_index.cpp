@@ -47,6 +47,8 @@ void Bm25Index::Add(const Ad& ad) {
     if (!saved_ad.has_value()) {
         return;
     }
+    ads_size_ += saved_ad->title.capacity() + saved_ad->description.capacity() +
+                 saved_ad->category.capacity();
 
     const auto terms = Tokenize(saved_ad->Text());
     std::unordered_map<std::string, size_t> term_frequencies;
@@ -181,9 +183,10 @@ IndexStats Bm25Index::Stats() const {
     stats.documents_count = document_lengths.size();
     stats.categories_count = category_counts_.size();
     stats.embedding_dimension = 0;
-    stats.memory_bytes = storage_.Size() * sizeof(Ad) +
+    stats.memory_bytes = storage_.Size() * sizeof(Ad) + ads_size_ +
                          postings_.size() * sizeof(std::string) +
-                         postings_count * (sizeof(IdType) + sizeof(size_t));
+                         postings_count * (sizeof(IdType) + sizeof(size_t)) +
+                         category_counts_.size() * sizeof(std::string);
 
     return stats;
 }

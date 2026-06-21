@@ -46,4 +46,5 @@ class Bm25Index final : public Index {
     std::unordered_map<IdType, size_t> document_lengths;
     std::unordered_set<std::string> category_counts_;
     size_t total_document_length_ = 0;
+    size_t ads_size_ = 0;
 };
