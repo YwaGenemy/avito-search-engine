@@ -61,7 +61,7 @@ void Bm25Index::Add(const Ad& ad) {
 
     document_lengths[id] = terms.size();
     total_document_length_ += terms.size();
-    ++category_counts_[saved_ad->category];
+    category_counts_.insert(saved_ad->category);
 }
 
 void Bm25Index::Remove(IdType ad_id) {
@@ -78,6 +78,7 @@ void Bm25Index::Remove(IdType ad_id) {
     }
     total_document_length_ -= length_it->second;
     document_lengths.erase(length_it);
+    category_counts_.erase(ad->category);
 
     for (auto it = postings_.begin(); it != postings_.end();) {
         it->second.erase(ad_id);
@@ -85,14 +86,6 @@ void Bm25Index::Remove(IdType ad_id) {
             it = postings_.erase(it);
         } else {
             ++it;
-        }
-    }
-
-    const auto category_it = category_counts_.find(ad->category);
-    if (category_it != category_counts_.end()) {
-        --category_it->second;
-        if (category_it->second == 0) {
-            category_counts_.erase(category_it);
         }
     }
 

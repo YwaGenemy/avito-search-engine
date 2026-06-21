@@ -4,6 +4,7 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "index.h"
@@ -42,7 +43,7 @@ class Bm25Index final : public Index {
     mutable std::shared_mutex mutex_;
 
     std::unordered_map<std::string, TermFrequencyByDocument> postings_;
-    std::unordered_map<std::string, size_t> category_counts_;
     std::unordered_map<IdType, size_t> document_lengths;
+    std::unordered_set<std::string> category_counts_;
     size_t total_document_length_ = 0;
 };
