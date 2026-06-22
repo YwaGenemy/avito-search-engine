@@ -204,7 +204,7 @@ TEST(Bm25IndexTest, RemoveUpdatesSearchGetSizeAndStats) {
     EXPECT_EQ(as_index.Size(), 1);
 }
 
-TEST(Bm25IndexTest, ClearRemovesIndexDataButKeepsStorageDocuments) {
+TEST(Bm25IndexTest, ClearRemovesIndexAndStorageDocuments) {
     DocumentStorage storage;
     Bm25Index index = MakeIndex(storage);
     Index& as_index = index;
@@ -221,7 +221,7 @@ TEST(Bm25IndexTest, ClearRemovesIndexDataButKeepsStorageDocuments) {
     EXPECT_TRUE(as_index.Empty());
     EXPECT_EQ(as_index.Size(), 0);
     EXPECT_TRUE(as_index.Search("clearone", Options()).empty());
-    EXPECT_TRUE(as_index.Get(id).has_value());
+    EXPECT_FALSE(as_index.Get(id).has_value());
 
     const auto stats = as_index.Stats();
     EXPECT_EQ(stats.documents_count, 0);
