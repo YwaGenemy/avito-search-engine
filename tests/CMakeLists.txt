@@ -14,8 +14,10 @@ if(NOT GTest_FOUND)
 endif()
 
 add_executable(search_engine_tests
+    bm25_index_tests.cpp
     embedder_test.cpp
     flat_vector_test.cpp
+    storage_test.cpp
 )
 
 target_link_libraries(search_engine_tests PRIVATE
