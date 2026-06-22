@@ -116,6 +116,9 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
     const auto build_finished_at = std::chrono::steady_clock::now();
     const double build_ms =
         std::chrono::duration<double, std::milli>(build_finished_at - build_started_at).count();
+    const auto build_stats = index.Stats();
+    const double memory_mb =
+        static_cast<double>(build_stats.memory_bytes) / (1024.0 * 1024.0);
     Ad add_probe_ad = dataset->ads.front();
     add_probe_ad.id = static_cast<IdType>(dataset->ads.size() + 1);
     const auto add_started_at = std::chrono::steady_clock::now();
@@ -170,6 +173,8 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
             benchmark::Counter(build_ms, benchmark::Counter::kAvgThreads);
         state.counters["add_ms"] =
             benchmark::Counter(add_ms, benchmark::Counter::kAvgThreads);
+        state.counters["memory_mb"] =
+            benchmark::Counter(memory_mb, benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
@@ -206,6 +211,9 @@ static void BM_Bm25Search(benchmark::State& state) {
     const auto build_finished_at = std::chrono::steady_clock::now();
     const double build_ms =
         std::chrono::duration<double, std::milli>(build_finished_at - build_started_at).count();
+    const auto build_stats = index.Stats();
+    const double memory_mb =
+        static_cast<double>(build_stats.memory_bytes) / (1024.0 * 1024.0);
     Ad add_probe_ad = dataset->ads.front();
     add_probe_ad.id = static_cast<IdType>(dataset->ads.size() + 1);
     const auto add_started_at = std::chrono::steady_clock::now();
@@ -260,6 +268,8 @@ static void BM_Bm25Search(benchmark::State& state) {
             benchmark::Counter(build_ms, benchmark::Counter::kAvgThreads);
         state.counters["add_ms"] =
             benchmark::Counter(add_ms, benchmark::Counter::kAvgThreads);
+        state.counters["memory_mb"] =
+            benchmark::Counter(memory_mb, benchmark::Counter::kAvgThreads);
     }
     state.counters["QPS"] =
         benchmark::Counter(static_cast<double>(state.iterations()),
