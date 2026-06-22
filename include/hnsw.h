@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <optional>
+#include <random>
 #include <unordered_map>
 #include <vector>
 #include <set>
@@ -66,5 +68,5 @@ private:
     mutable std::mt19937 rng_;
     mutable std::uniform_real_distribution<double> dist_;
 
-    static constexpr double ML_ = 1.0 / std::log(2.0);
+    static constexpr double ML_ = 1.4426950408889634; // 1.0 / std::log(2.0)
 };
