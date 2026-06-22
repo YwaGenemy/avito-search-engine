@@ -2,6 +2,7 @@
 
 #include "flat_vector.h"
 #include "bm25_index.h"
+#include "hnsw.h"
 
 #include "storage.h"
 
@@ -22,12 +23,15 @@ private:
     std::vector<std::string> filters_;
     std::unordered_map<IdType, std::string> flat_file_paths_;
     std::unordered_map<IdType, std::string> bm25_file_paths_;
+    std::unordered_map<IdType, std::string> hnsw_file_paths_;
 
     DocumentStorage bm25_storage_;
     DocumentStorage flat_storage_;
+    DocumentStorage hnsw_storage_;
 
     FlatVectorIndex flat_index_;
     Bm25Index bm25_index_;
+    HnswIndex hnsw_index_;
 
     // active choice
     DocumentStorage* storage_ = nullptr;

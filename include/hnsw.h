@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <optional>
+#include <random>
 #include <unordered_map>
 #include <vector>
 #include <set>

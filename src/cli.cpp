@@ -130,7 +130,7 @@ void PrintFilters(const std::vector<std::string>& filters){
 Cli::Cli() :
     flat_index_(flat_storage_),
     bm25_index_(bm25_storage_, 1.5, 0.75),
-    // hnsw_index_(hnsw_storage_),
+    hnsw_index_(hnsw_storage_, 128),
 
     index_(&flat_index_),
     storage_(&flat_storage_),
@@ -229,8 +229,9 @@ void Cli::SwitchMemory(const std::string& name){
         storage_ = &bm25_storage_;
         file_paths_ = &bm25_file_paths_;       
     }else if(name == "hnsw"){
-        // index_ = &hnsw_index_;
-        // storage_ = &hnsw_storage_;    
+        index_ = &hnsw_index_;
+        storage_ = &hnsw_storage_;
+        file_paths_ = &hnsw_file_paths_;
     }else{ return; }
 
     const auto new_size = file_paths_->size();
@@ -252,9 +253,9 @@ void Cli::SetIndex(const std::string& name){
         active_index_ = "BM25";
         std::cout << kGreenColor << "active index: BM25" << kResetColor << '\n';
     } else if(name == "hnsw"){
-        // index_ = $hnsw_index_;
-        // storage_ = &hnsw_storage_;
-        std::cout << kYellowColor << "HNSW is selected, but implementation is not connected yet" << kResetColor << '\n';
+        SwitchMemory("hnsw");
+        active_index_ = "HNSW";
+        std::cout << kGreenColor << "active index: HNSW" << kResetColor << '\n';
     } else {
         std::cout << kRedColor << "usage: /index <flat|bm25|hnsw>" << kResetColor << '\n';
     }
@@ -370,6 +371,7 @@ void Cli::Search(const std::string& query){
     }
 
     for(const auto& result : results){
+        if(result.score == 0.0)continue;
         const auto ad = index_->Get(result.ad_id);
         if(!ad.has_value())continue;
         const auto path_it = file_paths_->find(result.ad_id);

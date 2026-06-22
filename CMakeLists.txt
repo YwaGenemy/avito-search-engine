@@ -13,6 +13,7 @@ add_library(search_engine_core
     #flat_vector
     src/embedder.cpp 
     src/flat_vector.cpp
+    src/hnsw.cpp
 )
 
 target_include_directories(search_engine_core PUBLIC
