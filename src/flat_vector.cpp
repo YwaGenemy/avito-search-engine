@@ -52,7 +52,6 @@ std::vector<SearchResult> FlatVectorIndex::Search(const std::string &query, cons
         for(size_t i = 0;i < embedder_.Dimension();i++){
             score += temp_emb[i] * embedding[i]; // скаляр
         }
-        if(score == 0.0)continue;
         result.push_back({id, score});
     }
     std::sort(result.begin(), result.end(), [](const auto& a, const auto& b){return a.score>b.score;});

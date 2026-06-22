@@ -6,6 +6,8 @@
 #include <random>
 #include <chrono>
 #include <limits>
+#include <mutex>
+#include <unordered_set>
 
 namespace {
 std::size_t CalcCategories(const DocumentStorage& storage) {
@@ -141,11 +143,11 @@ std::vector<IdType> HnswIndex::SearchLayer(IdType entry_point, const std::vector
 }
 
 std::vector<IdType> HnswIndex::KnnSearch(const std::vector<float>& query_emb, size_t K, const std::optional<std::string>& category) const {
+    std::shared_lock sl(mtx_);
+
     if (nodes_.empty() || K == 0) {
         return {};
     }
-
-    std::shared_lock sl(mtx_);
 
     if (nodes_.size() == 1) {
         for (const auto& [id, node] : nodes_) {
@@ -153,14 +155,14 @@ std::vector<IdType> HnswIndex::KnnSearch(const std::vector<float>& query_emb, si
         }
     }
 
-    if (nodes_.find(entry_point_) == nodes_.end()) {
+    IdType current_point = entry_point_;
+    if (nodes_.find(current_point) == nodes_.end()) {
         for (const auto& [id, node] : nodes_) {
-            entry_point_ = id;
+            current_point = id;
             break;
         }
     }
 
-    IdType current_point = entry_point_;
     int current_level = max_level_global_;
 
     for (int level = current_level; level > 0; --level) {
