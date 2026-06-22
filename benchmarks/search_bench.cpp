@@ -120,7 +120,6 @@ static void BM_FlatVectorSearch(benchmark::State& state) {
     const double memory_mb =
         static_cast<double>(build_stats.memory_bytes) / (1024.0 * 1024.0);
     Ad add_probe_ad = dataset->ads.front();
-    add_probe_ad.id = static_cast<IdType>(dataset->ads.size() + 1);
     const auto add_started_at = std::chrono::steady_clock::now();
     index.Add(add_probe_ad);
     const auto add_finished_at = std::chrono::steady_clock::now();
@@ -215,7 +214,6 @@ static void BM_Bm25Search(benchmark::State& state) {
     const double memory_mb =
         static_cast<double>(build_stats.memory_bytes) / (1024.0 * 1024.0);
     Ad add_probe_ad = dataset->ads.front();
-    add_probe_ad.id = static_cast<IdType>(dataset->ads.size() + 1);
     const auto add_started_at = std::chrono::steady_clock::now();
     index.Add(add_probe_ad);
     const auto add_finished_at = std::chrono::steady_clock::now();
