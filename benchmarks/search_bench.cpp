@@ -11,6 +11,7 @@
 #include "bm25_index.h"
 #include "dataset_loader.h"
 #include "flat_vector.h"
+#include "hnsw.h"
 #include "storage.h"
 
 namespace {
@@ -277,8 +278,97 @@ static void BM_Bm25Search(benchmark::State& state) {
 }
 
 static void BM_HnswSearch(benchmark::State& state) {
-    (void)state;
-    state.SkipWithError("HNSW is not implemented yet");
+    const BenchmarkDataset* dataset = nullptr;
+    try {
+        dataset = &GetDataset();
+    } catch (const std::exception& ex) {
+        state.SkipWithError(ex.what());
+        return;
+    }
+
+    if (dataset->ads.empty()) {
+        state.SkipWithError("Dataset has no ads");
+        return;
+    }
+    if (dataset->queries.empty()) {
+        state.SkipWithError("Dataset has no queries");
+        return;
+    }
+
+    DocumentStorage storage;
+    HnswIndex index(storage, 128);
+
+    const auto build_started_at = std::chrono::steady_clock::now();
+    for (const Ad& ad : dataset->ads) {
+        index.Add(ad);
+    }
+    const auto build_finished_at = std::chrono::steady_clock::now();
+    const double build_ms =
+        std::chrono::duration<double, std::milli>(build_finished_at - build_started_at).count();
+    const auto build_stats = index.Stats();
+    const double memory_mb =
+        static_cast<double>(build_stats.memory_bytes) / (1024.0 * 1024.0);
+    Ad add_probe_ad = dataset->ads.front();
+    const auto add_started_at = std::chrono::steady_clock::now();
+    index.Add(add_probe_ad);
+    const auto add_finished_at = std::chrono::steady_clock::now();
+    const double add_ms =
+        std::chrono::duration<double, std::milli>(add_finished_at - add_started_at).count();
+
+    double recall10_sum = 0.0;
+    double recall100_sum = 0.0;
+    std::vector<double> latencies_ms;
+    std::size_t query_idx = 0;
+    for (auto _ : state) {
+        const BenchmarkQuery& query = dataset->queries[query_idx % dataset->queries.size()];
+        ++query_idx;
+
+        const auto started_at = std::chrono::steady_clock::now();
+        const std::vector<IdType> relevant_runtime_ids =
+            ToRuntimeRelevantIds(query.relevant_ad_ids);
+
+        const std::vector<SearchResult> results10 =
+            index.Search(query.text, RecallOptions(query.options, 10));
+        const std::vector<SearchResult> results100 =
+            index.Search(query.text, RecallOptions(query.options, 100));
+
+        recall10_sum += ComputeRecallAtK(relevant_runtime_ids, results10, 10);
+        recall100_sum += ComputeRecallAtK(relevant_runtime_ids, results100, 100);
+        benchmark::DoNotOptimize(results10.size() + results100.size());
+        const auto finished_at = std::chrono::steady_clock::now();
+        const double latency_ms =
+            std::chrono::duration<double, std::milli>(finished_at - started_at).count();
+        latencies_ms.push_back(latency_ms);
+    }
+
+    if (state.iterations() > 0) {
+        const double avg_recall10 =
+            recall10_sum / static_cast<double>(state.iterations());
+        const double avg_recall100 =
+            recall100_sum / static_cast<double>(state.iterations());
+
+        state.counters["Recall@10"] =
+            benchmark::Counter(avg_recall10, benchmark::Counter::kAvgThreads);
+        state.counters["Recall@100"] =
+            benchmark::Counter(avg_recall100, benchmark::Counter::kAvgThreads);
+        state.counters["p50_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 50),
+            benchmark::Counter::kAvgThreads);
+        state.counters["p99_ms"] = benchmark::Counter(
+            ComputePercentileMs(latencies_ms, 99),
+            benchmark::Counter::kAvgThreads);
+        state.counters["build_ms"] =
+            benchmark::Counter(build_ms, benchmark::Counter::kAvgThreads);
+        state.counters["add_ms"] =
+            benchmark::Counter(add_ms, benchmark::Counter::kAvgThreads);
+        state.counters["memory_mb"] =
+            benchmark::Counter(memory_mb, benchmark::Counter::kAvgThreads);
+    }
+    state.counters["QPS"] =
+        benchmark::Counter(static_cast<double>(state.iterations()),
+                           benchmark::Counter::kIsRate);
+    state.SetItemsProcessed(state.iterations() *
+                            static_cast<int64_t>(state.threads()));
 }
 
 BENCHMARK(BM_FlatVectorSearch)
@@ -292,6 +382,9 @@ BENCHMARK(BM_Bm25Search)
     ->Threads(4)
     ->Threads(8);
 BENCHMARK(BM_HnswSearch)
-    ->Unit(benchmark::kMillisecond);
+    ->Unit(benchmark::kMillisecond)
+    ->Threads(1)
+    ->Threads(4)
+    ->Threads(8);
 
 BENCHMARK_MAIN();
