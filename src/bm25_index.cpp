@@ -40,30 +40,34 @@ Bm25Index::Bm25Index(DocumentStorage& storage, double k1, double b)
 IndexType Bm25Index::Type() const noexcept { return IndexType::InvertedBm25; }
 
 void Bm25Index::Add(const Ad& ad) {
-    std::unique_lock lock(mutex_);
-
     IdType id = storage_.Add(ad);
-    const auto saved_ad = storage_.Get(id);
-    if (!saved_ad.has_value()) {
-        return;
-    }
-    ads_size_ += saved_ad->title.capacity() + saved_ad->description.capacity() +
-                 saved_ad->category.capacity();
 
-    const auto terms = Tokenize(saved_ad->Text());
+    const auto terms = Tokenize(ad.Text());
     std::unordered_map<std::string, size_t> term_frequencies;
 
     for (const auto& term : terms) {
         ++term_frequencies[term];
     }
 
-    for (const auto& [term, frequency] : term_frequencies) {
-        postings_[term][id] = frequency;
-    }
+    {
+        std::unique_lock lock(mutex_);
 
-    document_lengths[id] = terms.size();
-    total_document_length_ += terms.size();
-    category_counts_.insert(saved_ad->category);
+        const auto saved_ad = storage_.Get(id);
+        if (!saved_ad.has_value()) {
+            return;
+        }
+        ads_size_ += saved_ad->title.capacity() +
+                     saved_ad->description.capacity() +
+                     saved_ad->category.capacity();
+
+        for (const auto& [term, frequency] : term_frequencies) {
+            postings_[term][id] = frequency;
+        }
+
+        document_lengths[id] = terms.size();
+        total_document_length_ += terms.size();
+        category_counts_.insert(saved_ad->category);
+    }
 }
 
 void Bm25Index::Remove(IdType ad_id) {
@@ -96,7 +100,7 @@ void Bm25Index::Remove(IdType ad_id) {
 
 std::vector<SearchResult> Bm25Index::Search(
     const std::string& query, const SearchOptions& options) const {
-    std::shared_lock lock(mutex_);
+    
 
     if (storage_.Empty() || options.top_k == 0) {
         return {};
@@ -108,6 +112,8 @@ std::vector<SearchResult> Bm25Index::Search(
     }
 
     std::unordered_map<IdType, double> scores;
+
+    std::shared_lock lock(mutex_);
 
     for (const auto& term : query_terms) {
         const auto postings_it = postings_.find(term);
@@ -132,6 +138,8 @@ std::vector<SearchResult> Bm25Index::Search(
                                        length_it->second);
         }
     }
+
+    lock.unlock();
 
     std::vector<SearchResult> results;
     results.reserve(scores.size());
