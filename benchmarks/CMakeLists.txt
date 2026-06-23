@@ -25,17 +25,10 @@ FetchContent_MakeAvailable(nlohmann_json)
 add_executable(search_bench
     search_bench.cpp
     dataset_loader.cpp
-    ../src/storage.cpp
-    ../src/bm25_index.cpp
-    ../src/embedder.cpp
-    ../src/flat_vector.cpp
-)
-
-target_include_directories(search_bench PRIVATE
-    ../include
 )
 
 target_link_libraries(search_bench PRIVATE
+    search_engine_core
     benchmark::benchmark
     nlohmann_json::nlohmann_json
 )
