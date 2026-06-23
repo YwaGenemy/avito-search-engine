@@ -47,6 +47,8 @@ void Bm25Index::Add(const Ad& ad) {
     if (!saved_ad.has_value()) {
         return;
     }
+    ads_size_ += saved_ad->title.capacity() + saved_ad->description.capacity() +
+                 saved_ad->category.capacity();
 
     const auto terms = Tokenize(saved_ad->Text());
     std::unordered_map<std::string, size_t> term_frequencies;
@@ -61,7 +63,7 @@ void Bm25Index::Add(const Ad& ad) {
 
     document_lengths[id] = terms.size();
     total_document_length_ += terms.size();
-    ++category_counts_[saved_ad->category];
+    category_counts_.insert(saved_ad->category);
 }
 
 void Bm25Index::Remove(IdType ad_id) {
@@ -78,6 +80,7 @@ void Bm25Index::Remove(IdType ad_id) {
     }
     total_document_length_ -= length_it->second;
     document_lengths.erase(length_it);
+    category_counts_.erase(ad->category);
 
     for (auto it = postings_.begin(); it != postings_.end();) {
         it->second.erase(ad_id);
@@ -85,14 +88,6 @@ void Bm25Index::Remove(IdType ad_id) {
             it = postings_.erase(it);
         } else {
             ++it;
-        }
-    }
-
-    const auto category_it = category_counts_.find(ad->category);
-    if (category_it != category_counts_.end()) {
-        --category_it->second;
-        if (category_it->second == 0) {
-            category_counts_.erase(category_it);
         }
     }
 
@@ -188,9 +183,10 @@ IndexStats Bm25Index::Stats() const {
     stats.documents_count = document_lengths.size();
     stats.categories_count = category_counts_.size();
     stats.embedding_dimension = 0;
-    stats.memory_bytes = storage_.Size() * sizeof(Ad) +
+    stats.memory_bytes = storage_.Size() * sizeof(Ad) + ads_size_ +
                          postings_.size() * sizeof(std::string) +
-                         postings_count * (sizeof(IdType) + sizeof(size_t));
+                         postings_count * (sizeof(IdType) + sizeof(size_t)) +
+                         category_counts_.size() * sizeof(std::string);
 
     return stats;
 }
@@ -207,8 +203,6 @@ void Bm25Index::Clear() {
 
 bool Bm25Index::MatchesCategory(IdType ad_id,
                                 const SearchOptions& options) const {
-    std::shared_lock lock(mutex_);
-
     if (!options.category.has_value()) {
         return true;
     }
@@ -220,8 +214,6 @@ bool Bm25Index::MatchesCategory(IdType ad_id,
 
 double Bm25Index::ScoreTerm(size_t term_frequency, size_t document_frequency,
                             size_t document_length) const {
-    std::shared_lock lock(mutex_);
-
     const double documents_count = storage_.Size();
     const double df = document_frequency;
     const double tf = term_frequency;

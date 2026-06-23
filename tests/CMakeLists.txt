@@ -22,6 +22,7 @@ add_executable(search_engine_tests
 
 target_link_libraries(search_engine_tests PRIVATE
     search_engine_core
+    search_engine_core
     GTest::gtest_main
 )
 

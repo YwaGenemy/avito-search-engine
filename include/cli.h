@@ -51,4 +51,7 @@ private:
 
     void ImportMemory();
     void SwitchMemory(const std::string& name);
+
+    void ImportMemory();
+    void SwitchMemory(const std::string& name);
 };
