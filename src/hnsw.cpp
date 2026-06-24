@@ -143,8 +143,6 @@ std::vector<IdType> HnswIndex::SearchLayer(IdType entry_point, const std::vector
 }
 
 std::vector<IdType> HnswIndex::KnnSearch(const std::vector<float>& query_emb, size_t K, const std::optional<std::string>& category) const {
-    std::shared_lock sl(mtx_);
-
     if (nodes_.empty() || K == 0) {
         return {};
     }
@@ -316,6 +314,8 @@ void HnswIndex::Remove(IdType id) {
 }
 
 std::vector<SearchResult> HnswIndex::Search(const std::string& query, const SearchOptions& options) const {
+    std::shared_lock sl(mtx_);
+
     if (nodes_.empty() || options.top_k == 0) {
         return {};
     }
